@@ -137,7 +137,4 @@ public class FindLibcCalls extends GhidraScript {
 
         return decompInterface;
     }
-
-    
-
 }
