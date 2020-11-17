@@ -5,8 +5,12 @@
 //@menupath 
 //@toolbar 
 
-import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.ArrayList;
+
 
 import ghidra.app.decompiler.ClangFuncNameToken;
 import ghidra.app.decompiler.ClangNode;
@@ -34,7 +38,7 @@ import ghidra.program.model.lang.*;
 import ghidra.program.model.pcode.*;
 import ghidra.program.model.address.*;
 
-public class FindLibcCalls extends GhidraScript {
+public class FunctionCalls extends GhidraScript {
     
     private DecompInterface decomp;
     
@@ -42,7 +46,7 @@ public class FindLibcCalls extends GhidraScript {
         ClangFuncNameToken funcName;
         List<ClangNode> arguments;
         ClangStatement statement;
-        public FunctionCall(ClanFuncNameToken funcName, List<ClangNode> arguments, ClangStatement statement) {
+        public FunctionCall(ClangFuncNameToken funcName, List<ClangNode> arguments, ClangStatement statement) {
             this.funcName = funcName;
             this.arguments = arguments;
             this.statement = statement;
@@ -50,6 +54,7 @@ public class FindLibcCalls extends GhidraScript {
     }
     
     private FunctionCall analyzeCall(ClangStatement clangStatement) {
+    	ObjectMapper bbjectMapper = new ObjectMapper();
         ClangFuncNameToken funcName = null;
         List<ClangNode> arguments = new ArrayList<>();
         for (int i = 0; i < clangStatement.numChildren(); i++ ) {
@@ -60,10 +65,12 @@ public class FindLibcCalls extends GhidraScript {
                 if (optoken.toString().contentEquals(",")) {
                     continue;
                 }
+                println("optoken:"+optoken.getText());
                 arguments.add(optoken);
             } else if (child instanceof ClangVariableToken) {
             	ClangVariableToken varToken = (ClangVariableToken) child;
             	HighVariable var = varToken.getHighVariable();
+            	println("var "+varToken.getText()+ " "+var);
                 arguments.add(child);
             } else if (child instanceof ClangFuncNameToken) {
                 funcName = (ClangFuncNameToken) child;
@@ -89,29 +96,53 @@ public class FindLibcCalls extends GhidraScript {
         }
         return result;
     }
+    
+    private Variable findVariableByName(Variable[] variables, String name) {
+    	for(Variable v : variables) {
+    		if(v.getName().equals(name)) {
+    			return v;
+    		}
+    	}
+    	return null;
+    }
 
     public void run() throws Exception {
-        println("Hello world!");
+    	String[] arguments = getScriptArgs();
+    	println("hey");
+        decomp = setUpDecompiler(currentProgram);
+        FunctionIterator funcs = currentProgram.getListing().getFunctions(true);
+        for (Function callingFunc : funcs) {
+            if (!callingFunc.isThunk()) {
+                for (FunctionCall call : findCallSites(callingFunc)) {
+                	if(call.funcName.getText().equals("gets")) {
+                		ClangNode node = call.arguments.get(0);
+                		if (node instanceof ClangVariableToken) {
+                			ClangVariableToken buffer = (ClangVariableToken) node;
+                			Variable buf = findVariableByName(callingFunc.getAllVariables(), buffer.getText());
+                			println(buf.getStackOffset() + " " + buffer.getText());
+                		}
+                	}
+                }
+            }
+        }
+    }
+    
+    
+    public void dumpFunctions() {
         println(currentProgram == null ? "null" : currentProgram.toString());
         decomp = setUpDecompiler(currentProgram);
         FunctionIterator funcs = currentProgram.getListing().getFunctions(true);
-        for (Function func : funcs) {
-            if (!func.isThunk()) {
-                println("-"+func.getName());
-                /*for (Function calledFunc : func.getCalledFunctions(monitor)) {
-                    String isExternal = calledFunc.isThunk() ? "*" : "";
-                    println("--"+ isExternal+ " " + calledFunc.getName());
-                    
-                }*/
-                for (FunctionCall call : findCallSites(func)) {
-                    println("-  " + call.statement.toString());
+        for (Function callingFunc : funcs) {
+            if (!callingFunc.isThunk()) {
+                println("-"+callingFunc.getName());
+                for (FunctionCall call : findCallSites(callingFunc)) {
+                	println("-  " + call.statement.toString());
                 }
-                for(Variable var : func.getLocalVariables()) {
+                for(Variable var : callingFunc.getLocalVariables()) {
                 	println(" Var: "+ var.getName() + " " + var.getStackOffset());
                 }
             }
         }
-        
     }
     
     private DecompInterface setUpDecompiler(Program program) {
