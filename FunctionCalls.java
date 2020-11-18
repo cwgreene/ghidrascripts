@@ -42,19 +42,37 @@ public class FunctionCalls extends GhidraScript {
     
     private DecompInterface decomp;
     
-    class FunctionCall {
+    class VariableJson {
+    	public String name;
+    	public int stackOffset;
+    	public int size;
+    }
+    
+    class FunctionJson {
+    	public List<VariableJson> variables;
+    	public List<FucntionCallJson> calls;
+    }
+    
+    class ProgramJson {
+    	public Map<String, FunctionJson> functions;
+    }
+    
+    class FunctionCallJson {
         ClangFuncNameToken funcName;
         List<ClangNode> arguments;
         ClangStatement statement;
-        public FunctionCall(ClangFuncNameToken funcName, List<ClangNode> arguments, ClangStatement statement) {
+        public FunctionCall(ClangFuncNameToken funcName,
+        		List<String> arguments,
+        		ClangStatement statement, 
+        		String address) {
             this.funcName = funcName;
             this.arguments = arguments;
             this.statement = statement;
+            this.address = address;
         }
     }
     
     private FunctionCall analyzeCall(ClangStatement clangStatement) {
-    	ObjectMapper bbjectMapper = new ObjectMapper();
         ClangFuncNameToken funcName = null;
         List<ClangNode> arguments = new ArrayList<>();
         for (int i = 0; i < clangStatement.numChildren(); i++ ) {
@@ -65,22 +83,20 @@ public class FunctionCalls extends GhidraScript {
                 if (optoken.toString().contentEquals(",")) {
                     continue;
                 }
-                println("optoken:"+optoken.getText());
                 arguments.add(optoken);
             } else if (child instanceof ClangVariableToken) {
             	ClangVariableToken varToken = (ClangVariableToken) child;
             	HighVariable var = varToken.getHighVariable();
-            	println("var "+varToken.getText()+ " "+var);
-                arguments.add(child);
+                arguments.add(child.GetText());
             } else if (child instanceof ClangFuncNameToken) {
                 funcName = (ClangFuncNameToken) child;
             }
         }
-        return new FunctionCall(funcName, arguments, clangStatement);
+        return new FunctionCallJson(funcName, arguments, clangStatement, clangStatement.getMaxAddress());
     }
     
-    private List<FunctionCall> findCallSites(Function func) {
-        List<FunctionCall> result = new ArrayList<>();
+    private List<FunctionCallJson> findCallSites(Function func) {
+        List<FunctionCallJson> result = new ArrayList<>();
         DecompileResults res = decomp.decompileFunction(func, 60, monitor);
         List<ClangNode> tokens = new ArrayList<>();
         res.getCCodeMarkup().flatten(tokens);
