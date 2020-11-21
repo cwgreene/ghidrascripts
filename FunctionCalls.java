@@ -179,7 +179,7 @@ public class FunctionCalls extends GhidraScript {
 
         // call it to get results
         if (!decompInterface.openProgram(currentProgram)) {
-            println("Decompile Error: " + decompInterface.getLastMessage());
+            printerr("Decompile Error: " + decompInterface.getLastMessage());
             return null;
         }
 
