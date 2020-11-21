@@ -28,14 +28,16 @@ public class DecompileFunction extends GhidraScript {
     public void run() throws Exception {
     	String[] arguments = getScriptArgs();
 
-    	if(arguments.length < 2) {
-    		printerr("Need to specify program");
+    	if(arguments.length < 1) {
+    		printerr("Need to specify function");
     		return;
     	}
     	
-    	String targetFunc = arguments[1];
+    	String targetFunc = arguments[0];
         var decomp = setUpDecompiler(currentProgram);
         FunctionIterator funcs = currentProgram.getListing().getFunctions(true);
+        
+        boolean found = false;
         for (var f : funcs) {
         	if (f.getName().equalsIgnoreCase(targetFunc)) {
         		var result = decomp.decompileFunction(f, 120, null);
@@ -44,7 +46,11 @@ public class DecompileFunction extends GhidraScript {
         			return;
         		}
         		println(result.getDecompiledFunction().getC());
+        		found = true;
         	}
+        }
+        if (!found) {
+        	printerr("Could not find function " + targetFunc);
         }
     }
     
