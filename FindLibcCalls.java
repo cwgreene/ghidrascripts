@@ -42,7 +42,7 @@ public class FindLibcCalls extends GhidraScript {
         ClangFuncNameToken funcName;
         List<ClangNode> arguments;
         ClangStatement statement;
-        public FunctionCall(ClanFuncNameToken funcName, List<ClangNode> arguments, ClangStatement statement) {
+        public FunctionCall(ClangFuncNameToken funcName, List<ClangNode> arguments, ClangStatement statement) {
             this.funcName = funcName;
             this.arguments = arguments;
             this.statement = statement;
@@ -126,7 +126,7 @@ public class FindLibcCalls extends GhidraScript {
         DecompileOptions options;
         options = new DecompileOptions();
         
-        println(state.getTool() == null ? "No tool!" : state.getTool().getName());
+        //println(state.getTool() == null ? "No tool!" : state.getTool().getName());
         PluginTool currentTool = state.getTool();
         if (currentTool != null) {
             OptionsService service = state.getTool().getService(OptionsService.class);

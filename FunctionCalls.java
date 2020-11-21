@@ -8,9 +8,9 @@
 import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.util.ArrayList;
-
 
 import ghidra.app.decompiler.ClangFuncNameToken;
 import ghidra.app.decompiler.ClangNode;
@@ -44,55 +44,77 @@ public class FunctionCalls extends GhidraScript {
     
     class VariableJson {
     	public String name;
-    	public int stackOffset;
     	public int size;
+    	public int stackOffset;
+    	public VariableJson(String name, int size, int stackOffset) {
+    		this.name = name;
+    		this.size = size;
+    		this.stackOffset = stackOffset;
+    	}
     }
     
     class FunctionJson {
     	public List<VariableJson> variables;
-    	public List<FucntionCallJson> calls;
+    	public List<FunctionCallJson> calls;
+    	public String name;
+    	
+    	public FunctionJson (){
+    		variables = new ArrayList<>();
+    		calls = new ArrayList<>();
+    	}
     }
     
     class ProgramJson {
-    	public Map<String, FunctionJson> functions;
+    	public List<FunctionJson> functions;
+    	
+    	public ProgramJson() {
+    		this.functions = new ArrayList<>();
+    	}
     }
     
     class FunctionCallJson {
-        ClangFuncNameToken funcName;
-        List<ClangNode> arguments;
-        ClangStatement statement;
-        public FunctionCall(ClangFuncNameToken funcName,
+        public String funcName;
+        public List<String> arguments;
+        public String address;
+        public FunctionCallJson(String funcName,
         		List<String> arguments,
-        		ClangStatement statement, 
         		String address) {
             this.funcName = funcName;
             this.arguments = arguments;
-            this.statement = statement;
             this.address = address;
         }
     }
     
-    private FunctionCall analyzeCall(ClangStatement clangStatement) {
-        ClangFuncNameToken funcName = null;
-        List<ClangNode> arguments = new ArrayList<>();
+    private FunctionCallJson analyzeCall(ClangStatement clangStatement) {
+        String funcName = null;
+        List<String> arguments = new ArrayList<>();
+        String argAcc = "";
         for (int i = 0; i < clangStatement.numChildren(); i++ ) {
             ClangNode child = clangStatement.Child(i);
             if (child instanceof ClangOpToken) {
                 ClangOpToken optoken = (ClangOpToken) child;
                 // I can't imagine this is the best way but...
                 if (optoken.toString().contentEquals(",")) {
+                	arguments.add(argAcc);
+                	argAcc = "";
                     continue;
                 }
-                arguments.add(optoken);
+                if (optoken.toString().contentEquals("=")) {
+                	argAcc = ""; // First thing we read was a return value.
+                	continue;
+                }
+                argAcc += optoken.getText();
             } else if (child instanceof ClangVariableToken) {
             	ClangVariableToken varToken = (ClangVariableToken) child;
-            	HighVariable var = varToken.getHighVariable();
-                arguments.add(child.GetText());
+                argAcc += varToken.getText();
             } else if (child instanceof ClangFuncNameToken) {
-                funcName = (ClangFuncNameToken) child;
+                funcName = ((ClangFuncNameToken) child).toString();
             }
         }
-        return new FunctionCallJson(funcName, arguments, clangStatement, clangStatement.getMaxAddress());
+        arguments.add(argAcc);
+        return new FunctionCallJson(funcName,
+        		arguments,
+        		clangStatement.getMaxAddress().toString());
     }
     
     private List<FunctionCallJson> findCallSites(Function func) {
@@ -124,40 +146,31 @@ public class FunctionCalls extends GhidraScript {
 
     public void run() throws Exception {
     	String[] arguments = getScriptArgs();
-    	println("hey");
         decomp = setUpDecompiler(currentProgram);
         FunctionIterator funcs = currentProgram.getListing().getFunctions(true);
+        ProgramJson program = new ProgramJson();
+        
         for (Function callingFunc : funcs) {
             if (!callingFunc.isThunk()) {
-                for (FunctionCall call : findCallSites(callingFunc)) {
-                	if(call.funcName.getText().equals("gets")) {
-                		ClangNode node = call.arguments.get(0);
-                		if (node instanceof ClangVariableToken) {
-                			ClangVariableToken buffer = (ClangVariableToken) node;
-                			Variable buf = findVariableByName(callingFunc.getAllVariables(), buffer.getText());
-                			println(buf.getStackOffset() + " " + buffer.getText());
-                		}
-                	}
+            	FunctionJson callingFuncJson = new FunctionJson();
+            	for (Variable var : callingFunc.getLocalVariables()) {
+            		VariableJson varjson = new VariableJson(var.getName(), 
+            				var.getLength(),
+            				var.getStackOffset());
+            		callingFuncJson.variables.add(varjson);
+            	}
+                for (FunctionCallJson call : findCallSites(callingFunc)) {
+                	callingFuncJson.calls.add(call);
                 }
+                callingFuncJson.name = callingFunc.getName();
+                program.functions.add(callingFuncJson);
             }
         }
-    }
-    
-    
-    public void dumpFunctions() {
-        println(currentProgram == null ? "null" : currentProgram.toString());
-        decomp = setUpDecompiler(currentProgram);
-        FunctionIterator funcs = currentProgram.getListing().getFunctions(true);
-        for (Function callingFunc : funcs) {
-            if (!callingFunc.isThunk()) {
-                println("-"+callingFunc.getName());
-                for (FunctionCall call : findCallSites(callingFunc)) {
-                	println("-  " + call.statement.toString());
-                }
-                for(Variable var : callingFunc.getLocalVariables()) {
-                	println(" Var: "+ var.getName() + " " + var.getStackOffset());
-                }
-            }
+        ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+        try {
+        	println(mapper.writeValueAsString(program));
+        } catch(Exception e) {
+        	throw new RuntimeException(e);
         }
     }
     
