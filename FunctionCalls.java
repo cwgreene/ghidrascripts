@@ -186,7 +186,6 @@ public class FunctionCalls extends GhidraScript {
         DecompileOptions options;
         options = new DecompileOptions();
         
-        println(state.getTool() == null ? "No tool!" : state.getTool().getName());
         PluginTool currentTool = state.getTool();
         if (currentTool != null) {
             OptionsService service = state.getTool().getService(OptionsService.class);
