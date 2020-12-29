@@ -56,7 +56,8 @@ public class FunctionCalls extends GhidraScript {
     class FunctionJson {
     	public List<VariableJson> variables;
     	public List<FunctionCallJson> calls;
-    	public String name;
+        public String name;
+        public String address;
     	
     	public FunctionJson (){
     		variables = new ArrayList<>();
@@ -152,7 +153,8 @@ public class FunctionCalls extends GhidraScript {
         
         for (Function callingFunc : funcs) {
             if (!callingFunc.isThunk()) {
-            	FunctionJson callingFuncJson = new FunctionJson();
+                FunctionJson callingFuncJson = new FunctionJson();
+                callingFuncJson.address = callingFunc.getEntryPoint().toString();
             	for (Variable var : callingFunc.getLocalVariables()) {
             		VariableJson varjson = new VariableJson(var.getName(), 
             				var.getLength(),
