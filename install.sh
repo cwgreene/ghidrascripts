@@ -1,5 +1,5 @@
 echo "Need at least ghidra 9.2 to have this work correctly"
-if [ x"$1" -eq "x" ]; then
+if [ x"$1" = "x" ]; then
 	echo -n "Ghidra Directory (used to get version): "
 	read GHIDRA_INSTALL_DIRECTORY
 else
