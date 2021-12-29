@@ -7,6 +7,9 @@
 
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.stream.Stream;
+import java.util.Base64;
+import java.util.stream.Collectors;
 
 import java.util.Iterator;
 
@@ -38,6 +41,7 @@ import ghidra.program.model.mem.*;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.lang.*;
 import ghidra.program.model.pcode.*;
+import ghidra.program.database.util.AddressRangeMapDB;
 import ghidra.program.model.address.*;
 
 public class FunctionCalls extends GhidraScript {
@@ -63,6 +67,8 @@ public class FunctionCalls extends GhidraScript {
         public String address;
         public List<String> arguments;
         public List<String> exitAddresses;
+        
+        public List<String> functionBytes;
 
         public FunctionJson() {
             variables = new ArrayList<>();
@@ -164,6 +170,18 @@ public class FunctionCalls extends GhidraScript {
         }
         return null;
     }
+    
+    private List<String> getFunctionBytesB64(Program prog, Function func) throws MemoryAccessException {
+    	AddressSetView body = func.getBody();
+    	List<String> allBytes = new ArrayList<String>();
+    	int totalLength = 0;
+    	for(AddressRange ar : body) {
+    		byte[] bs = new byte[(int)ar.getLength()];
+    		prog.getMemory().getBytes(ar.getMinAddress(), bs);
+        	allBytes.add(Base64.getEncoder().encodeToString(bs));
+    	}
+    	return allBytes;
+    }
 
     public void run() throws Exception {
         String[] arguments = getScriptArgs();
@@ -183,13 +201,16 @@ public class FunctionCalls extends GhidraScript {
                 }
                 callingFuncJson.address = callingFunc.getEntryPoint().toString();
                 for (Variable var : callingFunc.getLocalVariables()) {
-                    VariableJson varjson = new VariableJson(var.getName(), var.getLength(), var.getStackOffset());
-                    callingFuncJson.variables.add(varjson);
+                	if (var.hasStackStorage()) {
+                		VariableJson varjson = new VariableJson(var.getName(), var.getLength(), var.getStackOffset());
+                		callingFuncJson.variables.add(varjson);
+                	} // else handle local non stack storage.
                 }
                 for (FunctionCallJson call : findCallSites(decompileResults)) {
                     callingFuncJson.calls.add(call);
                 }
                 callingFuncJson.name = callingFunc.getName();
+                callingFuncJson.functionBytes = getFunctionBytesB64(currentProgram, callingFunc);
                 program.functions.add(callingFuncJson);
             }
         }
