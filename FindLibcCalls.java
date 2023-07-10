@@ -109,7 +109,13 @@ public class FindLibcCalls extends GhidraScript {
                     println("-  " + call.statement.toString());
                 }
                 for(Variable var : func.getLocalVariables()) {
-                	println(" Var: "+ var.getName() + " " + var.getStackOffset());
+                	if (var.hasStackStorage()) {
+                		println(" Var: "+ var.getName() + " " + var.getStackOffset());
+                	} else if (var.isRegisterVariable()){
+                		println(" Var: " + var.getName() + " " + var.getRegister());
+                	} else {
+                		println(" Var: " + var.getName() + " (UNKNOWN STORAGE)");
+                	}
                 }
             }
         }
