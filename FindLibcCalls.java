@@ -8,6 +8,8 @@
 import java.util.ArrayList;
 import java.util.List;
 
+import functionutils.FunctionCall;
+
 import ghidra.app.decompiler.ClangFuncNameToken;
 import ghidra.app.decompiler.ClangNode;
 import ghidra.app.decompiler.ClangOpToken;
@@ -17,6 +19,7 @@ import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.decompiler.DecompileOptions;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.app.script.GhidraScript;
+import ghidra.app.script.GhidraState;
 import ghidra.framework.options.ToolOptions;
 import ghidra.framework.plugintool.PluginTool;
 import ghidra.framework.plugintool.util.OptionsService;
@@ -92,7 +95,7 @@ public class FindLibcCalls extends GhidraScript {
     public void run() throws Exception {
         println("Hello world!");
         println(currentProgram == null ? "null" : currentProgram.toString());
-        decomp = setUpDecompiler(currentProgram);
+        decomp = setUpDecompiler(currentProgram, state);
         FunctionIterator funcs = currentProgram.getListing().getFunctions(true);
         for (Function func : funcs) {
             if (!func.isThunk()) {
@@ -113,11 +116,11 @@ public class FindLibcCalls extends GhidraScript {
         
     }
     
-    private DecompInterface setUpDecompiler(Program program) {
+    private DecompInterface setUpDecompiler(Program program, GhidraState state) {
         DecompInterface decompInterface = new DecompInterface();
 
         // call it to get results
-        if (!decompInterface.openProgram(currentProgram)) {
+        if (!decompInterface.openProgram(program)) {
             println("Decompile Error: " + decompInterface.getLastMessage());
             return null;
         }
