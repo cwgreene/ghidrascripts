@@ -10,6 +10,7 @@ import functionutils.FunctionCall;
 import functionutils.FunctionUtils;
 import ghidra.app.cmd.equate.SetEquateCmd;
 import ghidra.app.decompiler.ClangNode;
+import ghidra.app.decompiler.ClangToken;
 import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.script.GhidraScript;
 import ghidra.framework.cmd.Command;
@@ -18,6 +19,8 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionIterator;
 import setup.SetupUtils;
 import ghidra.program.model.listing.Variable;
+import ghidra.program.model.pcode.HighVariable;
+import ghidra.program.model.pcode.HighConstant;
 
 public class AnnotateSeccmp extends GhidraScript {
 	DecompInterface decomp;
@@ -34,7 +37,14 @@ public class AnnotateSeccmp extends GhidraScript {
                     	try {
                     		ClangNode param = call.arguments.get(2);
                             println(param.toString());
-                            int callnumber = Integer.parseInt(call.arguments.get(2).toString());
+                            if (!(param instanceof ClangToken)) {
+                                continue;
+                            }
+                            HighVariable var = ((ClangToken) param).getHighVariable();
+                            if (!(var instanceof HighConstant)) {
+                                continue;
+                            }
+                            int callnumber = (int) ((HighConstant)var).getScalar().getValue();
                     		String name = LinuxX64Syscalls.getSyscall(callnumber);
                     		Address loc = param.getMinAddress().subtract(0x12);
                     		Command cmd =
