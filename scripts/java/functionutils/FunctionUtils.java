@@ -13,12 +13,27 @@ import ghidra.app.decompiler.DecompileResults;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.pcode.HighVariable;
 import ghidra.util.task.TaskMonitor;
+import ghidra.app.script.GhidraScript;
 
 public class FunctionUtils {
+    public static GhidraScript printer;
+    public static void setPrinter(GhidraScript ghidrascript) {
+        printer = ghidrascript;
+    }
     public static FunctionCall analyzeCall(ClangStatement clangStatement) {
         ClangFuncNameToken funcName = null;
         List<ClangNode> arguments = new ArrayList<>();
+        int start = 0;
+        // Find start of function call.
         for (int i = 0; i < clangStatement.numChildren(); i++ ) {
+            ClangNode child = clangStatement.Child(i);
+            if (child instanceof ClangFuncNameToken) {
+                start = i;
+                break;
+            }
+        }
+        // Parse function and arguments.
+        for (int i = start; i < clangStatement.numChildren(); i++ ) {
             ClangNode child = clangStatement.Child(i);
             if (child instanceof ClangOpToken) {
                 ClangOpToken optoken = (ClangOpToken) child;

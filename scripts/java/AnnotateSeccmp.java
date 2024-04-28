@@ -43,6 +43,7 @@ public class AnnotateSeccmp extends GhidraScript {
     private long constantParamValue(ClangNode param){
         println(param.toString());
         HighVariable var = ((ClangToken) param).getHighVariable();
+        println(var.toString());
         long value = (int) ((HighConstant)var).getScalar().getValue();
         return value;
     }
@@ -59,8 +60,41 @@ public class AnnotateSeccmp extends GhidraScript {
                 new SetEquateCmd(label, loc, 1, action);
         state.getTool().execute(cmd, currentProgram);
     }
+
+    private void labelInitAction(FunctionCall call) {
+        ClangNode actionParam = call.arguments.get(0);
+        print(actionParam.toString());
+        long action = constantParamValue(actionParam);
+        String label = SeccompConstants.actionToString(action);
+        // HACK! MinAddress gives the location of the function call
+        // so we just go back to where the compiler typically
+        // loads RSI (second param)
+        Address loc = actionParam.getMinAddress().subtract(0x5);
+        Command cmd =
+                new SetEquateCmd(label, loc, 1, action);
+        state.getTool().execute(cmd, currentProgram);
+    }
+
+    public void annotate_seccomp_rule_add(FunctionCall call) {
+        try {
+            labelSysCall(call);
+            labelAction(call);
+        } catch (java.lang.ClassCastException e) {
+            println("Could not annotate: " + call.toString());
+        }
+    }
+
+    public void annotate_seccomp_init(FunctionCall call) {
+        try {
+            labelInitAction(call);
+        } catch (java.lang.ClassCastException e) {
+            println("Could not annotate: " + call.toString());
+        }
+    }
+
 	
     public void run() throws Exception {
+        FunctionUtils.setPrinter(this);
         println(currentProgram == null ? "null" : currentProgram.toString());
         decomp = SetupUtils.setUpDecompiler(currentProgram, state, this);
         FunctionIterator funcs = currentProgram.getListing().getFunctions(true);
@@ -68,13 +102,9 @@ public class AnnotateSeccmp extends GhidraScript {
             if (!func.isThunk()) {
                 for (FunctionCall call : FunctionUtils.findCallSites(func, decomp, monitor)) {
                     if (call.funcName.getText().equals("seccomp_rule_add")) {
-                    	// Attempt to convert to int
-                    	try {
-                            labelSysCall(call);
-                            labelAction(call);
-                    	} catch (NumberFormatException e) {
-                    		// Do nothing for now, probably log in future.
-                    	}
+                        annotate_seccomp_rule_add(call);
+                    } else if (call.funcName.getText().equals("seccomp_init")) {
+                        annotate_seccomp_init(call);
                     }
                 }
             }

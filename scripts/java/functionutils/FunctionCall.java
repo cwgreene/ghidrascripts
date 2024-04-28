@@ -15,4 +15,19 @@ public class FunctionCall {
         this.arguments = arguments;
         this.statement = statement;
     }
+
+    public String toString() {
+        String acc = funcName.toString();
+        boolean start = true;
+
+        acc += "(";
+        for (ClangNode c : arguments) {
+            if (!start) {
+                acc += ", ";
+            }
+            acc += c.toString();
+        }
+        acc += ")";
+        return acc;
+    }
 }
