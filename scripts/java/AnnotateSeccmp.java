@@ -6,6 +6,7 @@
 //@toolbar 
 
 import constants.LinuxX64Syscalls;
+import constants.SeccompConstants;
 import functionutils.FunctionCall;
 import functionutils.FunctionUtils;
 import ghidra.app.cmd.equate.SetEquateCmd;
@@ -24,6 +25,40 @@ import ghidra.program.model.pcode.HighConstant;
 
 public class AnnotateSeccmp extends GhidraScript {
 	DecompInterface decomp;
+
+    private void labelSysCall(FunctionCall call) {
+        ClangNode param = call.arguments.get(2);
+        int callnumber = (int) constantParamValue(param);
+        String name = LinuxX64Syscalls.getSyscall(callnumber);
+
+        // HACK! MinAddress gives the location of the function call
+        // so we just go back to where the compiler typically
+        // loads ECX (3rd param)
+        Address loc = param.getMinAddress().subtract(0x12);
+        Command cmd =
+                new SetEquateCmd(name, loc, 1, callnumber);
+        state.getTool().execute(cmd, currentProgram);
+    }
+
+    private long constantParamValue(ClangNode param){
+        println(param.toString());
+        HighVariable var = ((ClangToken) param).getHighVariable();
+        long value = (int) ((HighConstant)var).getScalar().getValue();
+        return value;
+    }
+
+    private void labelAction(FunctionCall call) {
+        ClangNode actionParam = call.arguments.get(1);
+        long action = constantParamValue(actionParam);
+        String label = SeccompConstants.actionToString(action);
+        // HACK! MinAddress gives the location of the function call
+        // so we just go back to where the compiler typically
+        // loads RSI (second param)
+        Address loc = actionParam.getMinAddress().subtract(0xd);
+        Command cmd =
+                new SetEquateCmd(label, loc, 1, action);
+        state.getTool().execute(cmd, currentProgram);
+    }
 	
     public void run() throws Exception {
         println(currentProgram == null ? "null" : currentProgram.toString());
@@ -35,21 +70,8 @@ public class AnnotateSeccmp extends GhidraScript {
                     if (call.funcName.getText().equals("seccomp_rule_add")) {
                     	// Attempt to convert to int
                     	try {
-                    		ClangNode param = call.arguments.get(2);
-                            println(param.toString());
-                            if (!(param instanceof ClangToken)) {
-                                continue;
-                            }
-                            HighVariable var = ((ClangToken) param).getHighVariable();
-                            if (!(var instanceof HighConstant)) {
-                                continue;
-                            }
-                            int callnumber = (int) ((HighConstant)var).getScalar().getValue();
-                    		String name = LinuxX64Syscalls.getSyscall(callnumber);
-                    		Address loc = param.getMinAddress().subtract(0x12);
-                    		Command cmd =
-        							new SetEquateCmd(name, loc, 1, callnumber);
-        					state.getTool().execute(cmd, currentProgram);
+                            labelSysCall(call);
+                            labelAction(call);
                     	} catch (NumberFormatException e) {
                     		// Do nothing for now, probably log in future.
                     	}
