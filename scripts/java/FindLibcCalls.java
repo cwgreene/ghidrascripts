@@ -1,5 +1,5 @@
-//TODO write a description for this script
-//@author 
+//Finds all functions, and prints function calls that happen within.
+//@author diracdelta
 //@category CustomerSubmission
 //@keybinding 
 //@menupath 
@@ -39,18 +39,7 @@ import ghidra.program.model.address.*;
 public class FindLibcCalls extends GhidraScript {
     
     private DecompInterface decomp;
-    
-    class FunctionCall {
-        ClangFuncNameToken funcName;
-        List<ClangNode> arguments;
-        ClangStatement statement;
-        public FunctionCall(ClangFuncNameToken funcName, List<ClangNode> arguments, ClangStatement statement) {
-            this.funcName = funcName;
-            this.arguments = arguments;
-            this.statement = statement;
-        }
-    }
-    
+
     private FunctionCall analyzeCall(ClangStatement clangStatement) {
         ClangFuncNameToken funcName = null;
         List<ClangNode> arguments = new ArrayList<>();
@@ -66,6 +55,18 @@ public class FindLibcCalls extends GhidraScript {
             } else if (child instanceof ClangVariableToken) {
             	ClangVariableToken varToken = (ClangVariableToken) child;
             	HighVariable var = varToken.getHighVariable();
+            	if (var != null) {
+            		for(Varnode v : var.getInstances()) {
+            			println("HighVar: " + var.getName() + "/"+v.encodePiece()+ "#" + v.getPCAddress());
+            		}
+            	}
+            	if (varToken.getVarnode() != null) {
+            		Varnode vn = varToken.getVarnode();
+            		println(varToken.getText() + "/"+ vn.encodePiece());
+            		if (vn.isConstant()) {
+            			println("Constant address: " + vn.getPCAddress());
+            		}
+            	}
                 arguments.add(child);
             } else if (child instanceof ClangFuncNameToken) {
                 funcName = (ClangFuncNameToken) child;

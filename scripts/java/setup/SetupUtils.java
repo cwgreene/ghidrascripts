@@ -1,3 +1,4 @@
+package setup;
 import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.decompiler.DecompileOptions;
 import ghidra.app.script.GhidraScript;

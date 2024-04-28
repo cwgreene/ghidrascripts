@@ -1,3 +1,10 @@
+//Finds functions that are likely constructors and creates data types for them.
+//@author diracdelta
+//@category CustomerSubmission
+//@keybinding 
+//@menupath 
+//@toolbar 
+
 import ghidra.app.decompiler.ClangFuncNameToken;
 import ghidra.app.decompiler.ClangNode;
 import ghidra.app.decompiler.ClangOpToken;
@@ -25,6 +32,7 @@ import ghidra.program.model.address.*;
 
 import functionutils.FunctionCall;
 import functionutils.FunctionUtils;
+import setup.SetupUtils;
 
 public class FindConstructors extends GhidraScript {
 	DecompInterface decomp;
